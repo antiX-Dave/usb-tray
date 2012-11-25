@@ -1,0 +1,242 @@
+#!/usr/bin/env python
+# Dependencies: your file manger, your mount command, your terminal,
+# gtk, pygtk, python os mod, python re mod, desktop_tool
+# File Name: usb-tray
+# Version: 1.0.0
+# Purpose: for opening, mounting, unmounting, and viewing your drives
+# Authors: Dave
+
+# Copyright (C) antiXCommunity http://antix.freeforums.org
+# License: gplv2
+# This file is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+################################################################################
+#################################################################
+import gtk
+import os
+import re
+from desktop_tool import get_icon as get_icon
+
+class Var:                     
+    def read(self):   
+        var = Var
+        var.COL_PATH = 0
+        var.COL_PIXBUF = 1
+        var.COL_IS_DIRECTORY = 2     
+        var.USER_HOME = os.environ['HOME']
+            
+        for line in open(var.USER_HOME+"/.antix-session/usb-tray.conf", "r").xreadlines():
+            if "#" not in line:
+                if re.search(r'^.*=', line):
+                    pieces = line.split('=')
+                    var.VARIABLE=(pieces[0])
+                    var.VARIABLE = re.sub(r'\n', '', var.VARIABLE)
+                    OBJECT=(pieces[1])
+                    OBJECT = re.sub(r'\n', '', OBJECT)
+                    setattr(var, var.VARIABLE, OBJECT)
+       
+class USB:
+    def on_refresh_clicked(self, widget):
+        self.current_directory = '/media'
+        self.fill_store()
+    
+    def on_terminal_clicked(self, widget):
+        item = self.iconView.get_selected_items()
+        for selected in item:
+            model = self.iconView.get_model()
+            path = model[selected][Var.COL_PATH]
+            path2 = self.current_directory + "/" + path
+            isDir = model[selected][Var.COL_IS_DIRECTORY]
+        
+            os.system("%s %s &" % ((Var.TERMINAL),(path2)))
+            self.toggle_window('')
+    
+    def on_unmount_clicked(self, widget):
+        item = self.iconView.get_selected_items()
+        for selected in item:
+            model = self.iconView.get_model()
+            path = model[selected][Var.COL_PATH]
+            path2 = self.current_directory + "/" + path
+            isDir = model[selected][Var.COL_IS_DIRECTORY]
+        
+            os.system("%s %s " % ((Var.UNMOUNT),(path2)))
+            
+        self.on_refresh_clicked('')
+         
+    def on_mount_clicked(self, widget):
+        self.dropbox.remove(self.rootselect)
+        self.BuildDropBox()
+        if self.dropbox.flags() & gtk.VISIBLE:
+            self.dropbox.hide()
+        else:
+            self.dropbox.show()
+        
+        os.system("sudo blkid -o full > /tmp/partitions")
+        
+        for line in open("/tmp/partitions", "r").xreadlines():
+            if re.search(r'^/', line):
+                pieces = line.split('\n')
+                self.rootselect.append_text(pieces[0])
+                
+    def mount(self, widget):
+        model = self.rootselect.get_model()
+        index = self.rootselect.get_active()
+        SELECT = model[index][0]
+        SELECT = SELECT.split(':')
+        Drive=(SELECT[0])
+        
+        os.system("%s %s" % ((Var.TERMINAL),(Drive)))
+        
+        self.dropbox.hide()
+        self.on_refresh_clicked('')
+            
+    def on_item_activated(self, widget, item):
+        model = widget.get_model()
+        path = model[item][Var.COL_PATH]
+        path2 = self.current_directory + "/" + path
+        isDir = model[item][Var.COL_IS_DIRECTORY]
+
+        if not isDir:
+            return
+            
+        os.system("%s %s &" % ((Var.FILE_MANAGER),(path2)))
+        self.toggle_window('') 
+        
+    def toggle_window(self, widget):
+        if self.window.flags() & gtk.VISIBLE:
+            self.window.hide()
+        else:
+            self.window.show()
+            self.window.stick()
+            self.current_directory = '/media'
+            self.fill_store() 
+        
+    def get_icon(self, name):
+        theme = gtk.icon_theme_get_default()
+        return theme.load_icon(name, 48, 0)
+        
+    def create_store(self):
+        store = gtk.ListStore(str, gtk.gdk.Pixbuf, bool)
+        store.set_sort_column_id(Var.COL_PATH, gtk.SORT_ASCENDING)
+        return store
+        	
+    def fill_store(self):
+        self.store.clear()
+
+        if self.current_directory == None:
+            return
+
+        for fl in os.listdir(self.current_directory):
+        
+            if not fl[0] == '.': 
+                if os.path.isdir(os.path.join(self.current_directory, fl)):
+                    self.store.append([fl, self.dirIcon, True])
+                else:
+                    self.store.append([fl, self.fileIcon, False])     
+                 
+    def BuildDropBox(self):
+        self.rootselect = gtk.combo_box_new_text()
+        self.rootselect.append_text('No Partition Selected:')    
+        self.rootselect.set_active(0)
+        self.rootselect.connect("changed", self.mount)
+        self.dropbox.pack_start(self.rootselect)
+        self.rootselect.show()
+        
+    def __init__(self):
+        self.current_directory = '/media'
+        self.fileIcon = self.get_icon(gtk.STOCK_FILE)
+        self.dirIcon = self.get_icon(gtk.STOCK_DIRECTORY)
+		
+        self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+        self.window.set_position(gtk.WIN_POS_MOUSE)
+        self.window.set_title("antiX usb-tray")
+        self.window.stick()
+        pixbuf = get_icon("drive-harddisk", 48)
+        self.window.set_icon(pixbuf)
+        self.window.set_size_request(int(Var.WINDOW_WIDTH), int(Var.WINDOW_HEIGHT))
+        self.window.set_decorated(False)
+        self.window.set_skip_taskbar_hint(True)
+        self.window.connect("destroy", lambda w: gtk.main_quit())
+        #self.window.connect("leave-notify-event", self.toggle_window)
+        
+        self.mainbox = gtk.VBox()
+        self.window.add(self.mainbox)
+        self.mainbox.show()
+        
+        toolbar = gtk.Toolbar()
+        self.mainbox.pack_start(toolbar, False, False, 0)
+        toolbar.show()
+        tooltips = gtk.Tooltips()
+        
+        refreshButton = gtk.ToolButton(gtk.STOCK_REFRESH)
+        refreshButton.connect("clicked", self.on_refresh_clicked)
+        tooltips.set_tip(refreshButton, 'Refresh the list', tip_private=None)
+        refreshButton.set_is_important(True)
+        toolbar.insert(refreshButton, -1)
+        refreshButton.show()
+        
+        terminalButton = gtk.ToolButton(gtk.STOCK_OPEN)
+        terminalButton.connect("clicked", self.on_terminal_clicked)
+        tooltips.set_tip(terminalButton, 'Open in terminal', tip_private=None)
+        terminalButton.set_is_important(True)
+        toolbar.insert(terminalButton, -1)
+        terminalButton.show()
+        
+        mountButton = gtk.ToolButton(gtk.STOCK_CONNECT)
+        mountButton.connect("clicked", self.on_mount_clicked)
+        tooltips.set_tip(mountButton, 'Mount device', tip_private=None)
+        mountButton.set_is_important(True)
+        toolbar.insert(mountButton, -1)
+        mountButton.show()
+        
+        self.dropbox = gtk.HBox()
+        self.mainbox.pack_start(self.dropbox)
+        self.BuildDropBox()
+        self.dropbox.hide()
+        
+        unmountButton = gtk.ToolButton(gtk.STOCK_DISCONNECT)
+        unmountButton.connect("clicked", self.on_unmount_clicked)
+        tooltips.set_tip(unmountButton, 'Unmount device', tip_private=None)
+        unmountButton.set_is_important(True)
+        toolbar.insert(unmountButton, -1)
+        unmountButton.show()
+        
+        sw = gtk.ScrolledWindow()
+        sw.set_shadow_type(gtk.SHADOW_ETCHED_IN)
+        sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        self.mainbox.pack_start(sw)
+        sw.show()
+        
+        self.store = self.create_store()
+        self.fill_store()
+        
+        self.iconView = gtk.IconView(self.store)
+        self.iconView.set_selection_mode(gtk.SELECTION_MULTIPLE)
+        self.iconView.set_text_column(Var.COL_PATH)
+        self.iconView.set_pixbuf_column(Var.COL_PIXBUF)
+        self.iconView.connect("item-activated", self.on_item_activated)
+        self.iconView.grab_focus()
+        sw.add(self.iconView)
+        self.iconView.show()
+        
+        self.window.hide()
+    
+        statusicon = gtk.StatusIcon()
+        pixbuf = get_icon("drive-harddisk", 32)
+        statusicon = gtk.status_icon_new_from_pixbuf(pixbuf)
+        statusicon.connect("activate", self.toggle_window)
+
+Var().read()
+USB()
+gtk.main()   
