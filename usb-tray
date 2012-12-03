@@ -113,6 +113,9 @@ class USB:
         os.system("%s %s &" % ((Var.FILE_MANAGER),(path2)))
         self.toggle_window('') 
         
+    def hide_window(self, widget1, widget2):    
+        self.window.hide()
+        
     def toggle_window(self, widget):
         if self.window.flags() & gtk.VISIBLE:
             self.window.hide()
@@ -167,6 +170,7 @@ class USB:
         self.window.set_size_request(int(Var.WINDOW_WIDTH), int(Var.WINDOW_HEIGHT))
         self.window.set_decorated(False)
         self.window.set_skip_taskbar_hint(True)
+        self.window.connect("focus_out_event", self.hide_window)
         self.window.connect("destroy", lambda w: gtk.main_quit())
         #self.window.connect("leave-notify-event", self.toggle_window)
         
