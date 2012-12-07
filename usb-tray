@@ -96,7 +96,7 @@ class USB:
         SELECT = SELECT.split(':')
         Drive=(SELECT[0])
         
-        os.system("%s %s" % ((Var.TERMINAL),(Drive)))
+        os.system("%s %s" % ((Var.MOUNT),(Drive)))
         
         self.dropbox.hide()
         self.on_refresh_clicked('')
