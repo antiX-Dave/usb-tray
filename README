@@ -8,7 +8,7 @@ copy desktop_tool.py to /usr/local/bin/desktop_tool.py as root
 and give it execute permisions
     chmod 755 /usr/local/bin/desktop_tool.py
 
-copy usb-tray.conf to ~/.antix-session/usb-tray.conf as root
-    cp ./usb-tray.conf ~/.antix-session/usb-tray.conf
+copy usb-tray.conf to ~/.antiX-session/usb-tray.conf as root
+    cp ./usb-tray.conf ~/.antiX-session/usb-tray.conf
 
 run and enjoy, add it to your startup if you like it ;)
